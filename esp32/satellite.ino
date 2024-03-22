@@ -11,8 +11,8 @@
 // VV BMP 280 pins VV
 #define BME_SCK 13
 #define BME_MISO 12
-#define BME_MOSI 11
-#define BME_CS 10
+#define BME_MOSI 27
+#define BME_CS 26
 // VV for approx altitude with BMP280 (just incase GPS dosent work) VV
 #define SEALEVELPRESSURE_HPA (1017.7)
 

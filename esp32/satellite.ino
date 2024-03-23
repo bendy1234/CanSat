@@ -65,7 +65,7 @@ void setup()
 
   // replace the LoRa.begin(---E-) argument with your location's frequency
   // 915E6 for North America
-  while (!LoRa.begin(866E6))
+  while (!LoRa.begin(915E6))
   {
     Serial.println(".");
     delay(500);

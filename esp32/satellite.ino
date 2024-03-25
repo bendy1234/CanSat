@@ -31,9 +31,9 @@ struct BMEData
 // {
 //   float latitude;
 //   float longitude;
-//   long altitude;
-//   long date;
-//   long time;
+//   int altitude;
+//   int date;
+//   int time;
 // };
 
 Adafruit_BME280 bme; // I2C
@@ -82,6 +82,7 @@ void loop()
 {
   Serial.println("Sending packet #");
   Serial.print(counter);
+  // TODO: decide whether to send the data in one big packet or not
   sendBMEData();
   counter++;
 
@@ -105,18 +106,14 @@ void sendBMEData()
     bme.readPressure(),
     bme.readHumidity(),
   };
-  uint8_t buffer[sizeof(BMEData)];
-  memcpy(buffer, &data, sizeof(BMEData));
+
+  uint8_t buffer[sizeof(uint16_t) + sizeof(BMEData)];
+  memcpy(buffer + 1, &counter, sizeof(uint16_t));
+  memcpy(buffer + 1 + sizeof(uint16_t) , &data, sizeof(BMEData));
 
   LoRa.beginPacket();
-  // packet number
-  LoRa.write('#');
-  LoRa.write(counter, sizeof(uint16_t));
-  // BME data
   LoRa.write('B');
-  LoRa.write(buffer, sizeof(BMEData));
-
-  LoRa.println();
+  LoRa.write(buffer, sizeof(uint16_t) + sizeof(BMEData));
   LoRa.endPacket();
 }
 
@@ -130,17 +127,15 @@ void sendBMEData()
 //     0
 //   };
 
-//   uint8_t buffer[sizeof(GPSData)];
-//   memcpy(buffer, &data, sizeof(GPSData));
+//   uint8_t buffer[sizeof(uint16_t) + sizeof(GPSData)];
+//   memcpy(buffer, &counter, sizeof(uint16_t));
+//   memcpy(buffer + sizeof(uint16_t), &data, sizeof(GPSData));
 
 //   // send the gps data
 //   LoRa.beginPacket();
-//   // packet number
-//   LoRa.write('#');
-//   LoRa.write(counter, sizeof(uint16_t));
-//   // GPS data
 //   LoRa.write('G');
-//   LoRa.write(buffer, sizeof(GPSData));
+//   LoRa.write(buffer, sizeof(uint16_t) + sizeof(GPSData));
+
 //   LoRa.endPacket();
 
 // }

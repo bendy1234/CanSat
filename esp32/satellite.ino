@@ -107,7 +107,7 @@ void sendBMEData()
     bme.readHumidity(),
   };
 
-  uint8_t buffer[sizeof(uint16_t) + sizeof(BMEData)];
+  uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(BMEData)];
   memcpy(buffer + 1, &counter, sizeof(uint16_t));
   memcpy(buffer + 1 + sizeof(uint16_t) , &data, sizeof(BMEData));
 
@@ -127,7 +127,7 @@ void sendBMEData()
 //     0
 //   };
 
-//   uint8_t buffer[sizeof(uint16_t) + sizeof(GPSData)];
+//   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)];
 //   memcpy(buffer, &counter, sizeof(uint16_t));
 //   memcpy(buffer + sizeof(uint16_t), &data, sizeof(GPSData));
 

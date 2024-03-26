@@ -21,11 +21,6 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
-#define BME_SCK 13
-#define BME_MISO 12
-#define BME_MOSI 27
-#define BME_CS 26
-
 #define SEALEVELPRESSURE_HPA (1017.7)
 
 Adafruit_BME280 bme; // I2C

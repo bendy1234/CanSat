@@ -11,12 +11,6 @@
 #define rst 14
 #define dio0 2
 
-// BMP 280 pins
-#define BME_SCK 13
-#define BME_MISO 12
-#define BME_MOSI 11
-#define BME_CS 10
-
 // for approx altitude with BMP280 (just incase GPS dosent work)
 #define SEALEVELPRESSURE_HPA (1017.7)
 
@@ -80,8 +74,8 @@ void setup()
 
 void loop()
 {
-  Serial.println("Sending packet #");
-  Serial.print(counter);
+  Serial.print("Sending packet #");
+  Serial.println(counter);
   // TODO: decide whether to send the data in one big packet or not
   sendBMEData();
   counter++;
@@ -108,12 +102,12 @@ void sendBMEData()
   };
 
   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(BMEData)];
+  buffer[0] = 'B';
   memcpy(buffer + 1, &counter, sizeof(uint16_t));
   memcpy(buffer + 1 + sizeof(uint16_t) , &data, sizeof(BMEData));
 
   LoRa.beginPacket();
-  LoRa.write('B');
-  LoRa.write(buffer, sizeof(uint16_t) + sizeof(BMEData));
+  LoRa.write(buffer, sizeof(char) + sizeof(uint16_t) + sizeof(BMEData));
   LoRa.endPacket();
 }
 

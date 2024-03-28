@@ -19,5 +19,5 @@ D22 -> SCL
 ### GPS
 3V3 -> VCC  
 GND -> GND  
-TX0 -> RX  
-RX0 -> TX
+D16 -> RX
+D17 -> TX  

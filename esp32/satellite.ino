@@ -3,8 +3,12 @@
 #include <LoRa.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-// #include <TinyGPS.h>
-// #include <HardwareSerial.h>
+#include <TinyGPS.h>
+#include <HardwareSerial.h>
+
+// gps pins
+#define RXPin 16
+#define TXPin 17
 
 // lora pins
 #define ss 5
@@ -14,34 +18,31 @@
 // for approx altitude with BMP280 (just incase GPS dosent work)
 #define SEALEVELPRESSURE_HPA (1017.7)
 
-struct BMEData
-{
+struct BMEData {
   float temperature;
   float pressure;
   float humidity;
 };
 
-// struct GPSData
-// {
-//   float latitude;
-//   float longitude;
-//   int altitude;
-//   int date;
-//   int time;
-// };
+struct GPSData {
+  double latitude;
+  double longitude;
+  double altitude;
+  uint32_t date;
+  uint32_t time;
+};
 
 Adafruit_BME280 bme; // I2C
 // Adafruit_BME280 bme(BME_CS); // hardware SPI
 // Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
 
-// TinyGPS gps;
-// HardwareSerial SerialGPS(0, 1);
+TinyGPS gps;
+HardwareSerial gpsSerial(2);
 
 unsigned long delayTime;
 uint16_t counter = 0;
 
-void setup()
-{
+void setup() {
   // initialize Serial Monitor
   Serial.begin(115200);
   while (!Serial);
@@ -50,17 +51,18 @@ void setup()
   unsigned status;
   status = bme.begin(0x76);
 
-  if (!status)
-  {
+  if (!status) {
     Serial.println("Could not find a valid BME280 sensor!");
   }
+
+  gpsSerial.begin(9600, SERIAL_8N1, RXPin, TXPin);
+
   // setup LoRa transceiver module
   LoRa.setPins(ss, rst, dio0);
 
   // replace the LoRa.begin(---E-) argument with your location's frequency
   // 915E6 for North America
-  while (!LoRa.begin(915E6))
-  {
+  while (!LoRa.begin(915E6)) {
     Serial.println(".");
     delay(500);
   }
@@ -72,24 +74,32 @@ void setup()
   Serial.println("LoRa Initializing OK!");
 }
 
-void loop()
-{
+void loop() {
+  counter++;
   Serial.print("Sending packet #");
-  Serial.println(counter);
+  Serial.print(counter);
+
   // TODO: decide whether to send the data in one big packet or not
   sendBMEData();
-  counter++;
 
-  // Serial.println("Sending packet #");
-  // Serial.print(counter);
-  // sendGPSData();
-  // counter++;
+  while (gpsSerial.available() > 0) {
+    if (gps.encode(gpsSerial.read())) {
+      counter++;
+      Serial.print("Sending packet #");
+      Serial.println(counter);
+      sendGPSData();
+    }
+  }
+
+  // no data received from the gps
+  if (millis() > 5000 && gps.charsProcessed() < 10) {
+    Serial.println("No GPS detected");
+  }
 
   delay(1000);
 }
 
-void sendBMEData()
-{
+void sendBMEData() {
   // ~Alt
   // dont need to send this, can be caluated on the ground or later
   // float atmospheric = readPressure() / 100.0F;
@@ -103,33 +113,30 @@ void sendBMEData()
 
   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(BMEData)];
   buffer[0] = 'B';
-  memcpy(buffer + 1, &counter, sizeof(uint16_t));
-  memcpy(buffer + 1 + sizeof(uint16_t) , &data, sizeof(BMEData));
+  memcpy(buffer + sizeof(char), &counter, sizeof(uint16_t));
+  memcpy(buffer + sizeof(char) + sizeof(uint16_t), &data, sizeof(BMEData));
 
   LoRa.beginPacket();
   LoRa.write(buffer, sizeof(char) + sizeof(uint16_t) + sizeof(BMEData));
   LoRa.endPacket();
 }
 
-// void sendGPSData()
-// {
-//   GPSData data = {
-//     0.0,
-//     0.0,
-//     0,
-//     0,
-//     0
-//   };
+void sendGPSData() {
 
-//   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)];
-//   memcpy(buffer, &counter, sizeof(uint16_t));
-//   memcpy(buffer + sizeof(uint16_t), &data, sizeof(GPSData));
+  GPSData data = {
+    gps.location.lat(),
+    gps.location.lng(),
+    gps.altitude.meters(),
+    gps.time.value(),
+    gps.date.value(),
+  };
 
-//   // send the gps data
-//   LoRa.beginPacket();
-//   LoRa.write('G');
-//   LoRa.write(buffer, sizeof(uint16_t) + sizeof(GPSData));
+  uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)];
+  buffer[0] = 'G';
+  memcpy(buffer + sizeof(char), &counter, sizeof(uint16_t));
+  memcpy(buffer + sizeof(char) + sizeof(uint16_t), &data, sizeof(GPSData));
 
-//   LoRa.endPacket();
-
-// }
+  LoRa.beginPacket();
+  LoRa.write(buffer, sizeof(uint16_t) + sizeof(GPSData));
+  LoRa.endPacket();
+}

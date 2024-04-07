@@ -12,11 +12,11 @@ struct BMEData {
 };
 
 struct GPSData {
-  float latitude;
-  float longitude;
-  long altitude;
-  int date; // ddmmyy
-  int time; // hhmmsscc
+  double latitude;
+  double longitude;
+  double altitude;
+  uint32_t date;
+  uint32_t time;
 };
 
 void setup() {
@@ -44,7 +44,7 @@ void setup() {
 void loop() {
   if (LoRa.parsePacket()) {
     // use sizeof(GPSData) for now because it's larger
-    uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)] = {0};
+    uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)] = { 0 };
 
     int bytesRead = 0;
     while (LoRa.available()) {
@@ -61,20 +61,22 @@ void parseData(uint8_t* buffer, int bytesRead) {
   if (type != 'B' && type != 'G') {
     Serial.print("Unknown packet type: '");
     Serial.print(type);
-    if ((bytesRead - 3) == sizeof(BMEData)) {
+    if ((bytesRead - sizeof(char) - sizeof(uint16_t)) == sizeof(BMEData)) {
       Serial.println("' Expecting BME data");
       type = 'B';
-    } else if ((bytesRead - 3) == sizeof(GPSData)) {
+    }
+    else if ((bytesRead - sizeof(char) - sizeof(uint16_t)) == sizeof(GPSData)) {
       Serial.println("' Expecting GPS data");
       type = 'G';
-    } else {
+    }
+    else {
       Serial.println("' Skipping!");
       return;
     }
   }
 
   uint16_t packetNumber;
-  memcpy(&packetNumber, buffer + 1, sizeof(uint16_t));
+  memcpy(&packetNumber, buffer + sizeof(char), sizeof(uint16_t));
   Serial.print("Packet # ");
   Serial.print(packetNumber);
   Serial.print(" ");
@@ -82,25 +84,37 @@ void parseData(uint8_t* buffer, int bytesRead) {
   // no need to worry about memory isuses
   if (type == 'B') {
     BMEData data;
-    memcpy(&data, buffer + 3, sizeof(BMEData));
+    memcpy(&data, buffer + sizeof(char) + sizeof(uint16_t), sizeof(BMEData));
     Serial.print(data.temperature);
     Serial.print("°C, ");
     Serial.print(data.pressure);
     Serial.print("hPa, ");
     Serial.print(data.humidity);
     Serial.println("%");
-  } else if (type == 'G') {
+  }
+  else if (type == 'G') {
     GPSData data;
-    memcpy(&data, buffer + 3, sizeof(GPSData));
+    memcpy(&data, buffer + sizeof(char) + sizeof(uint16_t), sizeof(GPSData));
+
     Serial.print("Lat: ");
     Serial.print(data.latitude);
     Serial.print("°, Lon: ");
     Serial.print(data.longitude);
     Serial.print("°, Alt: ");
-    Serial.print(data.altitude / 100.0);
+    Serial.print(data.altitude);
     Serial.print("m, Date: ");
-    Serial.print(data.date); // ddmmyy
+
+    Serial.print(data.date % 100 + 2000); //  year
+    Serial.print("/");
+    Serial.print((data.date / 100) % 100); // month
+    Serial.print("/");
+    Serial.print(data.date / 10000); // day
+
     Serial.print(", Time: ");
-    Serial.println(data.time); // hhmmsscc
+    Serial.print(data.time / 1000000); // hour
+    Serial.print(":");
+    Serial.print((data.time / 10000) % 100); // minute
+    Serial.print(":");
+    Serial.println((data.time / 100) % 100); // second
   }
 }

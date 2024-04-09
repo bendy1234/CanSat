@@ -36,7 +36,7 @@ Adafruit_BME280 bme; // I2C
 // Adafruit_BME280 bme(BME_CS); // hardware SPI
 // Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
 
-TinyGPS gps;
+TinyGPSPlus gps;
 HardwareSerial gpsSerial(2);
 
 unsigned long delayTime;
@@ -62,8 +62,8 @@ void setup() {
 
   // replace the LoRa.begin(---E-) argument with your location's frequency
   // 915E6 for North America
+  Serial.println("Initializing LoRa...");
   while (!LoRa.begin(915E6)) {
-    Serial.println(".");
     delay(500);
   }
 

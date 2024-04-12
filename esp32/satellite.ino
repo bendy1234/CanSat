@@ -3,7 +3,7 @@
 #include <LoRa.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <TinyGPS.h>
+#include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
 // gps pins
@@ -75,18 +75,16 @@ void setup() {
 }
 
 void loop() {
-  counter++;
-  Serial.print("Sending packet #");
-  Serial.print(counter);
+  Serial.print("Sending BME packet #");
+  Serial.println(++counter);
 
   // TODO: decide whether to send the data in one big packet or not
   sendBMEData();
 
   while (gpsSerial.available() > 0) {
     if (gps.encode(gpsSerial.read())) {
-      counter++;
-      Serial.print("Sending packet #");
-      Serial.println(counter);
+      Serial.print("Sending GPS packet #");
+      Serial.println(++counter);
       sendGPSData();
     }
   }
@@ -107,7 +105,7 @@ void sendBMEData() {
 
   BMEData data = {
     bme.readTemperature(),
-    bme.readPressure(),
+    bme.readPressure() / 100.0F,
     bme.readHumidity(),
   };
 

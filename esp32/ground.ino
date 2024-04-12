@@ -65,7 +65,7 @@ void parseData(uint8_t* buffer, int bytesRead) {
       Serial.println("' Expecting BME data");
       type = 'B';
     }
-    else if ((bytesRead - sizeof(char) - sizeof(uint16_t)) == sizeof(GPSData)) {
+    else if ((bytesRead - 3) == sizeof(GPSData)) {
       Serial.println("' Expecting GPS data");
       type = 'G';
     }
@@ -77,7 +77,7 @@ void parseData(uint8_t* buffer, int bytesRead) {
 
   uint16_t packetNumber;
   memcpy(&packetNumber, buffer + sizeof(char), sizeof(uint16_t));
-  Serial.print("Packet # ");
+  Serial.print("Packet #");
   Serial.print(packetNumber);
   Serial.print(" ");
 

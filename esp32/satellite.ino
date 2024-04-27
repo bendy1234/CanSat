@@ -33,11 +33,8 @@ struct GPSData {
 };
 
 Adafruit_BME280 bme; // I2C
-// Adafruit_BME280 bme(BME_CS); // hardware SPI
-// Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
 
 TinyGPSPlus gps;
-HardwareSerial gpsSerial(2);
 
 unsigned long delayTime;
 uint16_t counter = 0;
@@ -46,7 +43,7 @@ void setup() {
   // initialize Serial Monitor
   Serial.begin(115200);
   while (!Serial);
-  Serial.println("LoRa Sender/BMP 280 test");
+  Serial.println("CanSAT");
 
   unsigned status;
   status = bme.begin(0x76);
@@ -55,7 +52,7 @@ void setup() {
     Serial.println("Could not find a valid BME280 sensor!");
   }
 
-  gpsSerial.begin(9600, SERIAL_8N1, RXPin, TXPin);
+  Serial2.begin(9600, SERIAL_8N1, RXPin, TXPin);
 
   // setup LoRa transceiver module
   LoRa.setPins(ss, rst, dio0);
@@ -78,11 +75,10 @@ void loop() {
   Serial.print("Sending BME packet #");
   Serial.println(++counter);
 
-  // TODO: decide whether to send the data in one big packet or not
   sendBMEData();
 
-  while (gpsSerial.available() > 0) {
-    if (gps.encode(gpsSerial.read())) {
+  while (Serial2.available() > 0) {
+    if (gps.encode(Serial2.read())) {
       Serial.print("Sending GPS packet #");
       Serial.println(++counter);
       sendGPSData();
@@ -109,6 +105,13 @@ void sendBMEData() {
     bme.readHumidity(),
   };
 
+  Serial2.print(String(data.temperature));
+  Serial2.print("C, "); // not using ° because it takes more than 1 byte
+  Serial2.print(String(data.pressure));
+  Serial2.print("hPa, ");
+  Serial2.print(String(data.humidity));
+  Serial2.println("%");
+
   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(BMEData)];
   buffer[0] = 'B';
   memcpy(buffer + sizeof(char), &counter, sizeof(uint16_t));
@@ -117,6 +120,7 @@ void sendBMEData() {
   LoRa.beginPacket();
   LoRa.write(buffer, sizeof(char) + sizeof(uint16_t) + sizeof(BMEData));
   LoRa.endPacket();
+
 }
 
 void sendGPSData() {
@@ -128,6 +132,25 @@ void sendGPSData() {
     gps.time.value(),
     gps.date.value(),
   };
+  
+  Serial2.print("Lat: ");
+  Serial2.print(data.latitude);
+  Serial2.print("°, Lon: ");
+  Serial2.print(data.longitude);
+  Serial2.print("°, Alt: ");
+  Serial2.print(data.altitude);
+  Serial2.print("m, Date: ");
+  Serial2.print(data.date % 100 + 2000); //  year
+  Serial2.print("/");
+  Serial2.print((data.date / 100) % 100); // month
+  Serial2.print("/");
+  Serial2.print(data.date / 10000); // day
+  Serial2.print(", Time: ");
+  Serial2.print(data.time / 1000000); // hour
+  Serial2.print(":");
+  Serial2.print((data.time / 10000) % 100); // minute
+  Serial2.print(":");
+  Serial2.println((data.time / 100) % 100); // second
 
   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)];
   buffer[0] = 'G';

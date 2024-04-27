@@ -20,4 +20,6 @@ D22 -> SCL
 3V3 -> VCC  
 GND -> GND  
 D16 -> RX
-D17 -> TX  
+
+### Raspberry Pi Zero
+D17 -> GPIO 15

@@ -136,22 +136,26 @@ void sendGPSData() {
   
   Serial2.print("Lat: ");
   Serial2.print(String(data.latitude));
-  Serial2.print("°, Lon: ");
+  Serial2.print(", Lon: ");
   Serial2.print(String(data.longitude));
-  Serial2.print("°, Alt: ");
+  Serial2.print(", Alt: ");
   Serial2.print(String(data.altitude));
-  Serial2.print("m, Date: ");
-  Serial2.print(String(data.date % 100 + 2000)); //  year
-  Serial2.print("/");
-  Serial2.print(String((data.date / 100) % 100)); // month
-  Serial2.print("/");
-  Serial2.print(String(data.date / 10000)); // day
-  Serial2.print(", Time: ");
-  Serial2.print(String(data.time / 1000000)); // hour
-  Serial2.print(":");
-  Serial2.print(String((data.time / 10000) % 100)); // minute
-  Serial2.print(":");
-  Serial2.println(String((data.time / 100) % 100)); // second
+  // The formated data has too much data being sent at once
+  // and the pi misses some charaters
+  Serial2.print("m, Raw Date: ");
+  Serial2.print(String(data.date));
+  // Serial2.print(String(data.date % 100 + 2000)); //  year
+  // Serial2.print("/");
+  // Serial2.print(String((data.date / 100) % 100)); // month
+  // Serial2.print("/");
+  // Serial2.print(String(data.date / 10000)); // day
+  Serial2.print(", Raw Time: ");
+  Serial2.println(String(data.time));
+  // Serial2.print(String(data.time / 1000000)); // hour
+  // Serial2.print(":");
+  // Serial2.print(String((data.time / 10000) % 100)); // minute
+  // Serial2.print(":");
+  // Serial2.println(String((data.time / 100) % 100)); // second
 
   uint8_t buffer[sizeof(char) + sizeof(uint16_t) + sizeof(GPSData)];
   buffer[0] = 'G';

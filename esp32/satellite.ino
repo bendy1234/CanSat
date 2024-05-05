@@ -15,7 +15,7 @@
 #define rst 14
 #define dio0 2
 
-// for approx altitude with BMP280 (just incase GPS dosent work)
+// for approx altitude with BME280 (just incase GPS dosent work)
 #define SEALEVELPRESSURE_HPA (1017.7)
 
 struct BMEData {
@@ -82,6 +82,7 @@ void loop() {
       Serial.print("Sending GPS packet #");
       Serial.println(++counter);
       sendGPSData();
+      break;
     }
   }
 

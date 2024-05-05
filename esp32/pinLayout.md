@@ -19,7 +19,7 @@ D22 -> SCL
 ### GPS
 3V3 -> VCC  
 GND -> GND  
-D16 -> RX
+D16 -> TX
 
 ### Raspberry Pi Zero
 D17 -> GPIO 15

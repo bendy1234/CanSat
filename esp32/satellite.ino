@@ -130,8 +130,8 @@ void sendGPSData() {
     gps.location.lat(),
     gps.location.lng(),
     gps.altitude.meters(),
-    gps.time.value(),
     gps.date.value(),
+    gps.time.value(),
   };
   
   Serial2.print("Lat: ");

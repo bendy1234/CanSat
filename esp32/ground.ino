@@ -97,9 +97,9 @@ void parseData(uint8_t* buffer, int bytesRead) {
     memcpy(&data, buffer + sizeof(char) + sizeof(uint16_t), sizeof(GPSData));
 
     Serial.print("Lat: ");
-    Serial.print(data.latitude);
+    Serial.print(data.latitude, 6);
     Serial.print("°, Lon: ");
-    Serial.print(data.longitude);
+    Serial.print(data.longitude, 6);
     Serial.print("°, Alt: ");
     Serial.print(data.altitude);
     Serial.print("m, Date: ");

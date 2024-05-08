@@ -135,9 +135,9 @@ void sendGPSData() {
   };
   
   Serial2.print("Lat: ");
-  Serial2.print(String(data.latitude));
+  Serial2.print(String(data.latitude, 6));
   Serial2.print(", Lon: ");
-  Serial2.print(String(data.longitude));
+  Serial2.print(String(data.longitude, 6));
   Serial2.print(", Alt: ");
   Serial2.print(String(data.altitude));
   // The formated data has too much data being sent at once

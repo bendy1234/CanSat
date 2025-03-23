@@ -1,0 +1,12 @@
+Lora  ESP-32-S3Mini
+
+3.3v <-> 3.3v
+GND <-> GND
+
+DIO0 = 1;
+RST = 2;
+
+SS = 10;
+MOSI = 11;
+SCK = 12;
+MISO = 13;

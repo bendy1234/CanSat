@@ -1,0 +1,10 @@
+Lora :
+3.3v -> 3.3v
+GND -> GND
+
+SS = 10;
+MOSI = 11;
+SCK = 12;
+MISO = 13;
+RST = 40;
+DIO0 = 41;

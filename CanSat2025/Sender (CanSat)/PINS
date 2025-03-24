@@ -2,6 +2,9 @@ Lora :
 3.3v -> 3.3v
 GND -> GND
 
+SDA = 8;
+SCL = 9;
+
 SS = 10;
 MOSI = 11;
 SCK = 12;

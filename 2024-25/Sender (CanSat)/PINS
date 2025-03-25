@@ -1,13 +1,20 @@
-Lora :
+  Lora :
 3.3v -> 3.3v
 GND -> GND
-
-SDA = 8;
-SCL = 9;
-
 SS = 10;
 MOSI = 11;
 SCK = 12;
 MISO = 13;
 RST = 40;
 DIO0 = 41;
+
+  BMP 280, ADXL343 :
+SDA = 8;
+SCL = 9;
+3.3v -> 3.3v
+GND -> GND
+
+Servos:
+3.3v -> 3.3v
+GND -> GND
+Signal -> 38,39,42,45

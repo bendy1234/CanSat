@@ -1,56 +1,105 @@
-/*********
-  Rui Santos & Sara Santos - Random Nerd Tutorials
-  Modified from the examples of the Arduino LoRa library
-  More resources: https://RandomNerdTutorials.com/esp32-lora-rfm95-transceiver-arduino-ide/
-*********/
+/*
+  LoRa Duplex communication
 
-#include <SPI.h>
+  Reads servo angles (0-180) from Serial Monitor and sends them as messages.
+  Implements a one-byte addressing scheme, with 0xFF as the broadcast address.
+
+  created 28 April 2017
+  by Tom Igoe
+  modified for servo control
+*/
+#include <SPI.h>              // include libraries
 #include <LoRa.h>
 
-//define the pins used by the transceiver module
-#define ss 10
-#define rst 2
-#define dio0 1
+const int csPin = 10;          // LoRa radio chip select
+const int resetPin = 2;       // LoRa radio reset
+const int irqPin = 1;         // change for your board; must be a hardware interrupt pin
+
+String outgoing;              // outgoing message
+byte msgCount = 0;            // count of outgoing messages
+byte localAddress = 0xBB;     // address of this device
+byte destination = 0xFF;      // destination to send to
 
 void setup() {
-  //initialize Serial Monitor
-  Serial.begin(115200);
+  Serial.begin(9600);                   // initialize serial
   while (!Serial);
-  Serial.println("LoRa Receiver");
 
-  //setup LoRa transceiver module
-  LoRa.setPins(ss, rst, dio0);
-  
-  //replace the LoRa.begin(---E-) argument with your location's frequency 
-  //433E6 for Asia
-  //868E6 for Europe
-  //915E6 for North America
-  while (!LoRa.begin(915E6)) {
-    Serial.println(".");
-    delay(500);
+  Serial.println("LoRa Servo Control");
+  Serial.println("Enter a number between 0-180 to control servo");
+
+  // override the default CS, reset, and IRQ pins (optional)
+  LoRa.setPins(csPin, resetPin, irqPin);// set CS, reset, IRQ pin
+
+  if (!LoRa.begin(915E6)) {             // initialize ratio at 915 MHz
+    Serial.println("LoRa init failed. Check your connections.");
+    while (true);                       // if failed, do nothing
   }
-   // Change sync word (0xF3) to match the receiver
-  // The sync word assures you don't get LoRa messages from other LoRa transceivers
-  // ranges from 0-0xFF
-  LoRa.setSyncWord(0xF3);
-  Serial.println("LoRa Initializing OK!");
+
+  Serial.println("LoRa init succeeded.");
 }
 
 void loop() {
-  // try to parse packet
-  int packetSize = LoRa.parsePacket();
-  if (packetSize) {
-    // received a packet
-    Serial.print("Received packet '");
-
-    // read packet
-    while (LoRa.available()) {
-      String LoRaData = LoRa.readString();
-      Serial.print(LoRaData); 
+  // Check if data is available to read
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim(); // Remove any whitespace
+    
+    // Convert string to integer
+    int angle = input.toInt();
+    
+    // Check if the angle is valid (0-180)
+    if (angle >= 0 && angle <= 180) {
+      String message = "SERVO:" + String(angle);
+      sendMessage(message);
+      sendMessage(message);
+      Serial.println("SENT: " + message);
+    } else {
+      Serial.println("Invalid angle. Please enter a number between 0-180");
     }
-
-    // print RSSI of packet
-    Serial.print("' with RSSI ");
-    Serial.println(LoRa.packetRssi());
   }
+
+  // parse for a packet, and call onReceive with the result:
+  onReceive(LoRa.parsePacket());
+}
+
+void sendMessage(String outgoing) {
+  LoRa.beginPacket();                   // start packet
+  LoRa.write(destination);              // add destination address
+  LoRa.write(localAddress);             // add sender address
+  LoRa.write(msgCount);                 // add message ID
+  LoRa.write(outgoing.length());        // add payload length
+  LoRa.print(outgoing);                 // add payload
+  LoRa.endPacket();                     // finish packet and send it
+  msgCount++;                           // increment message ID
+}
+
+void onReceive(int packetSize) {
+  if (packetSize == 0) return;          // if there's no packet, return
+
+  // read packet header bytes:
+  int recipient = LoRa.read();          // recipient address
+  byte sender = LoRa.read();            // sender address
+  byte incomingMsgId = LoRa.read();     // incoming msg ID
+  byte incomingLength = LoRa.read();    // incoming msg length
+
+  String incoming = "";
+
+  while (LoRa.available()) {
+    incoming += (char)LoRa.read();
+  }
+
+  if (incomingLength != incoming.length()) {   // check length for error
+    Serial.println("error: message length does not match length");
+    return;                             // skip rest of function
+  }
+
+  // if the recipient isn't this device or broadcast,
+  if (recipient != localAddress && recipient != 0xFF) {
+    Serial.println("This message is not for me.");
+    return;                             // skip rest of function
+  }
+
+  // if message is for this device, or broadcast, print details:
+  Serial.print("REC:" + incoming);
+  Serial.println(", RSSI:" + String(LoRa.packetRssi()));
 }

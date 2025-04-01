@@ -45,6 +45,7 @@ void setup() {
   myservo.write(90);  // set initial position to 90 degrees
 
   // Initialize BME680 sensor
+  Wire.begin(8, 9);
   if (!bme.begin(0x76)) {
     Serial.println("Could not find a valid BME680 sensor, check wiring!");
     while (1);

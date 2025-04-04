@@ -9,12 +9,13 @@ RST = 40;
 DIO0 = 41;
 
   BMP 280, ADXL343 :
+  (0x76)    (0x53)
 SDA = 8;
 SCL = 9;
 3.3v -> 3.3v
 GND -> GND
 
-Servos:
+  Servos:
 3.3v -> 3.3v
 GND -> GND
 Signal -> 38,39,42,45

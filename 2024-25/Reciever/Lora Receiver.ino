@@ -41,14 +41,14 @@ void loop() {
     // only send packet after receiving one
     if (Serial.available() > 0) {
       delay(10);
-      int new_angle = Serial.readStringUntil('\n').toInt();
+      String command = Serial.readStringUntil('\n');
 
-      Serial.print("Sending new angle ");
-      Serial.println(new_angle);
+      Serial.print("Sending new command '");
+      Serial.print(command);
+      Serial.print("'");
 
       LoRa.beginPacket();
-      LoRa.print("SERVO:");
-      LoRa.print(new_angle);
+      LoRa.print(command);
       LoRa.endPacket();
 
       LoRa.receive();

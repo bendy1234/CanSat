@@ -3,33 +3,69 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <Adafruit_ADXL343.h>
 #include <ESP32Servo.h>
 
-// LoRa
-#define csPin 10      // LoRa radio chip select
+// pins
+#define SDA_PIN 8
+#define SCL_PIN 9
+
+// LoRa radio chip select
+#define csPin 10
 #define resetPin 40
 #define irqPin 41
+
+
+#define BME_ADDR 0x76
+#define ADXL_ADDR 0x53
+
+#define SEALEVELPRESSURE_HPA 1000.0
 
 #define aileronServoPin 38
 // #define servoPin2 39
 #define rudderServoPin 42
 // #define servoPin4 45
 
-Adafruit_BME280 bme;  // Address is changed to 0x76 in `setup()`
+// simple vec3 for what i need
+struct Vec3f {
+  float x, y, z;
+  Vec3f operator*(float scalar) const {
+    return {x * scalar, y * scalar, z * scalar};
+  }
+
+  Vec3f& operator*=(float scalar) {
+    x *= scalar; y *= scalar; z *= scalar;
+    return *this;
+  }
+
+  Vec3f& operator+=(const Vec3f& other) {
+    x += other.x; y += other.y; z += other.z;
+    return *this;
+  }
+};
+
+// sensors
+Adafruit_BME280 bme;
+Adafruit_ADXL343 accel = Adafruit_ADXL343(ADXL_ADDR, &Wire);
+
+// servos
 Servo aileronServo;
 // Servo servo2;
 Servo rudderServo;
 // Servo servo4;
 
 byte msgCount = 0;
-long lastSendTime = 0;
+
+long lastSendTime, lastAccelReadTime;
 int interval = 2000;
+
+Vec3f vel, pos;
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  Serial.println("LoRa Duplex with BME280");
+  Serial.println("CanSat!");
 
   // Initialize servos
   aileronServo.attach(aileronServoPin);
@@ -39,10 +75,15 @@ void setup() {
   aileronServo.write(90);
   rudderServo.write(90);
 
-  // Initialize BME680 sensor
-  Wire.begin(8, 9);
-  if (!bme.begin(0x76)) {
+  // Initialize BME280 sensor
+  Wire.begin(SDA_PIN, SCL_PIN);
+  if (!bme.begin(BME_ADDR, &Wire)) {
     Serial.println("Could not find a valid BME280 sensor!");
+    while (true);
+  }
+
+  if (!accel.begin()) {
+    Serial.println("Could not find ADXL343 sensor!");
     while (true);
   }
 
@@ -59,20 +100,40 @@ void setup() {
 }
 
 void loop() {
-  // check for incomeing packets
+  // check for incoming packets
   onReceive(LoRa.parsePacket());
 
-  if (millis() - lastSendTime > interval) {
-    // Read sensor data
+  // TODO: use interrupts if possible
+  // always read accelerometer data when possible
+  int16_t x, y, z;
+  if (accel.getXYZ(x, y, z)) {
+    // integrate forces
+    float interval = (millis() - lastAccelReadTime) / 1000.0;
+    Vec3f acceleration = Vec3f{x, y, z} * (ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD * interval);
     
-    // Format sensor data into a single message
-    String msg = String(millis() / 1000.0, 1) + "," + 
-                  String(bme.readTemperature(), 1) + "," + 
-                  String(bme.readPressure() / 100.0, 1) + "," + 
-                  String(bme.readHumidity(), 1);
+    vel += acceleration;
+    pos += vel * interval;
+
+    lastAccelReadTime = millis();
+  }
+
+  if (millis() - lastSendTime > interval) {
+    char msg[128];
+    snprintf(msg, sizeof(msg), "%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+              millis() / 1000.0,
+              bme.readTemperature(),
+              bme.readPressure() / 100.0,
+              bme.readHumidity(),
+              vel.x,
+              vel.y,
+              vel.z,
+              pos.x,
+              pos.y,
+              pos.z
+    );
     
     sendMessage(msg);
-    lastSendTime = millis();            // timestamp the message
+    lastSendTime = millis();
     LoRa.receive();
   }
 }

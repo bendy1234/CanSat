@@ -1,0 +1,96 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_ADXL343.h>
+#include <math.h>
+
+#define SDA_PIN 8
+#define SCL_PIN 9
+
+#define BME280_ADDRESS 0x76
+#define ADXL343_ADDRESS 0x53
+
+#define SEALEVELPRESSURE_HPA 1000.0
+
+// BME280
+Adafruit_BME280 bme;
+
+// ADXL343
+Adafruit_ADXL343 accel = Adafruit_ADXL343(ADXL343_ADDRESS, &Wire);
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // Start I2C with custom SDA/SCL
+  Wire.begin(SDA_PIN, SCL_PIN);
+
+  // Initialize BME280
+  if (!bme.begin(BME280_ADDRESS, &Wire)) {
+    Serial.println("Could not find BME280 sensor!");
+    while (true);
+  }
+
+  // Initialize ADXL343
+  if (!accel.begin()) {
+    Serial.println("Could not find ADXL343 sensor!");
+    while (true);
+  }
+
+  accel.setRange(ADXL343_RANGE_2_G); // ±2g range
+}
+
+void loop() {
+  // BME280 Readings
+  float pressure = bme.readPressure() / 100.0F; // hPa
+  float humidity = bme.readHumidity();          // %
+  float temperature = bme.readTemperature();    // °C
+  float altitude = bme.readAltitude(SEALEVELPRESSURE_HPA); // m
+
+  // ADXL343 Readings
+  sensors_event_t event;
+  accel.getEvent(&event);
+  float ax = event.acceleration.x;
+  float ay = event.acceleration.y;
+  float az = event.acceleration.z;
+
+  // Orientation
+  float pitch = atan2(-ax, sqrt(ay * ay + az * az)) * 180.0 / PI;
+  float roll  = atan2(ay, az) * 180.0 / PI;
+
+  // Print data
+  Serial.print("Pressure: ");
+  Serial.print(pressure, 2);
+  Serial.println(" hPa");
+
+  Serial.print("Humidity: ");
+  Serial.print(humidity, 2);
+  Serial.println(" %");
+
+  Serial.print("Rel. Altitude: ");
+  Serial.print(altitude, 2);
+  Serial.println(" m");
+
+  Serial.print("Accel X: ");
+  Serial.print(ax, 4);
+  Serial.println(" m/s²");
+
+  Serial.print("Accel Y: ");
+  Serial.print(ay, 4);
+  Serial.println(" m/s²");
+
+  Serial.print("Accel Z: ");
+  Serial.print(az, 4);
+  Serial.println(" m/s²");
+
+  Serial.print("Pitch: ");
+  Serial.print(pitch, 2);
+  Serial.println(" °");
+
+  Serial.print("Roll:  ");
+  Serial.print(roll, 2);
+  Serial.println(" °");
+
+  Serial.println();
+  delay(500);
+}

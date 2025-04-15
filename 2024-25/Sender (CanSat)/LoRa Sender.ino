@@ -6,6 +6,8 @@
 #include <Adafruit_ADXL343.h>
 #include <ESP32Servo.h>
 
+#define BYPASS_LORA true
+
 // pins
 #define SDA_PIN 8
 #define SCL_PIN 9
@@ -87,32 +89,38 @@ void setup() {
     while (true);
   }
 
-  // override the default CS, reset, and IRQ pins (optional)
-  LoRa.setPins(csPin, resetPin, irqPin);
+  if (!BYPASS_LORA) {
+    // override the default CS, reset, and IRQ pins (optional)
+    LoRa.setPins(csPin, resetPin, irqPin);
 
-  if (!LoRa.begin(915E6)) {             // initialize ratio at 915 MHz
-    Serial.println("LoRa init failed. Check your connections.");
-    while (true);
+    if (!LoRa.begin(915E6)) {             // initialize ratio at 915 MHz
+      Serial.println("LoRa init failed. Check your connections.");
+      while (true);
+    }
+
+    LoRa.setSyncWord(0xF3);
+    Serial.println("LoRa init succeeded.");
+  } else {
+    Serial.println("WARNING: LoRa bypass enabled");
   }
-
-  LoRa.setSyncWord(0xF3);
-  Serial.println("LoRa init succeeded.");
 }
 
 void loop() {
   // check for incoming packets
-  onReceive(LoRa.parsePacket());
+  if (!BYPASS_LORA) {
+    onReceive(LoRa.parsePacket());
+  }
 
   // TODO: use interrupts if possible
   // always read accelerometer data when possible
   int16_t x, y, z;
   if (accel.getXYZ(x, y, z)) {
     // integrate forces
-    float interval = (millis() - lastAccelReadTime) / 1000.0;
-    Vec3f acceleration = Vec3f{x, y, z} * (ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD * interval);
+    float time_passed = (millis() - lastAccelReadTime) / 1000.0;
+    Vec3f acceleration = Vec3f{x, y, z} * (ADXL343_MG2G_MULTIPLIER * SENSORS_GRAVITY_STANDARD * time_passed);
     
     vel += acceleration;
-    pos += vel * interval;
+    pos += vel * time_passed;
 
     lastAccelReadTime = millis();
   }
@@ -132,9 +140,14 @@ void loop() {
               pos.z
     );
     
-    sendMessage(msg);
     lastSendTime = millis();
-    LoRa.receive();
+    if (!BYPASS_LORA) {
+      sendMessage(msg);
+      LoRa.receive();
+    }
+    else {
+      Serial.println(msg);
+    }
   }
 }
 

@@ -16,7 +16,7 @@ void setup() {
   LoRa.setPins(ss, rst, dio0);
   
   // 915E6 for North America
-  while (!LoRa.begin(915E6)) {
+  while (!LoRa.begin(907E6)) {
     Serial.print(".");
     delay(500);
   }

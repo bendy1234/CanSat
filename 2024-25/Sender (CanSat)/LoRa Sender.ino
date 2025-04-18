@@ -5,6 +5,7 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_ADXL343.h>
 #include <ESP32Servo.h>
+#include <RS-FEC.h> // https://github.com/simonyipeter/Arduino-FEC/tree/5d2164e6731d9f96e01aaf94d314d26e242f98e5
 
 #define BYPASS_LORA true
 
@@ -56,7 +57,10 @@ Servo aileronServo;
 Servo rudderServo;
 // Servo servo4;
 
-byte msgCount = 0;
+RS::ReedSolomon<12, 6> shortRS;
+RS::ReedSolomon<40, 8> longRS;
+
+uint8_t msgCount = 0;
 
 long lastSendTime, lastAccelReadTime;
 int interval = 2000;
@@ -126,28 +130,43 @@ void loop() {
   }
 
   if (millis() - lastSendTime > interval) {
-    char msg[128];
-    snprintf(msg, sizeof(msg), "%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
-              millis() / 1000.0,
-              bme.readTemperature(),
-              bme.readPressure() / 100.0,
-              bme.readHumidity(),
-              vel.x,
-              vel.y,
-              vel.z,
-              pos.x,
-              pos.y,
-              pos.z
-    );
-    
+    float data[10];
+    data[0] = millis() / 1000.0;
+    data[1] = bme.readTemperature();
+    data[2] = bme.readPressure() / 100.0;
+    data[3] = bme.readHumidity();
+    data[4] = vel.x;
+    data[5] = vel.y;
+    data[6] = vel.z;
+    data[7] = pos.x;
+    data[8] = pos.y;
+    data[9] = pos.z;
+
     lastSendTime = millis();
     if (!BYPASS_LORA) {
-      sendMessage(msg);
+      sendMessage((char *) data, sizeof(data));
       LoRa.receive();
     }
-    else {
-      Serial.println(msg);
-    }
+
+    Serial.print(data[0]);
+    Serial.print("s, ");
+    Serial.print(data[1]);
+    Serial.print("∘c, ");
+    Serial.print(data[2]);
+    Serial.print( "Hpa, ");
+    Serial.print(data[3]);
+    Serial.print("%, vel: ");
+    Serial.print(data[4]);
+    Serial.print(", ");
+    Serial.print(data[5]);
+    Serial.print(", ");
+    Serial.print(data[6]);
+    Serial.print(", est pos: ");
+    Serial.print(data[7]);
+    Serial.print(", ");
+    Serial.print(data[8]);
+    Serial.print(", ");
+    Serial.println(data[9]);
   }
 }
 
@@ -156,7 +175,7 @@ void servoCommand(String command) {
   // Validate angle
   if (angle < 0 || angle > 180) {
     Serial.println("Invalid servo angle");
-    sendMessage("SERVO: Invalid angle");
+    sendMessage("SERVO:BadAng");
     return;
   }
 
@@ -169,31 +188,48 @@ void servoCommand(String command) {
     Serial.println(command.substring(0, 2));
 
     delay(10);
-    sendMessage("SERVO: Unknown");
+    sendMessage("SERVO:Unknwn");
     return;
   }
 
   Serial.print("Servo ");
   Serial.print(command.substring(0, 2));
-  Serial.println("set to: " + String(angle));
+  Serial.println(" set to: " + String(angle));
 
   delay(10);
-  sendMessage("SERVO: " + command);
+  sendMessage("SERVO:" + command);
 }
 
 void sendMessage(String msg) {
+  sendMessage(msg.c_str(), msg.length());
+  Serial.println("SENT: " + msg);
+}
+
+void sendMessage(const char* msg, uint8_t lenght) {
   LoRa.beginPacket();
-  LoRa.print(msg);
+  if (lenght > 12) {
+    uint8_t out[40 + 8]; // msg should never be longer than 40 chars
+    longRS.Encode(msg, out);
+    LoRa.write(out, sizeof(out));
+  } else {
+    uint8_t out[12 + 6];
+    shortRS.Encode(msg, out);
+    LoRa.write(out, sizeof(out));
+  }
   LoRa.endPacket();
   msgCount++;
-  Serial.println("SENT: " + msg);
 }
 
 void onReceive(int packetSize) {
   if (packetSize == 0) return;
 
   // get message
-  String msg = LoRa.readString();
+  char data[18], out[13];
+  out[12] = 0;
+  
+  LoRa.readBytes(data, sizeof(data));
+  shortRS.Decode(data, out);
+  String msg = String(out);
 
   Serial.print("RECV: ");
   Serial.println(msg);

@@ -18,16 +18,16 @@
 #define resetPin 40
 #define irqPin 41
 
-
-#define BME_ADDR 0x76
-#define ADXL_ADDR 0x53
-
-#define SEALEVELPRESSURE_HPA 1000.0
-
 #define aileronServoPin 38
 // #define servoPin2 39
 #define rudderServoPin 42
 // #define servoPin4 45
+
+// I²C addresses
+#define BME_ADDR 0x76
+#define ADXL_ADDR 0x53
+
+#define SEALEVELPRESSURE_HPA 1000.0
 
 // simple vec3 for what i need
 struct Vec3f {

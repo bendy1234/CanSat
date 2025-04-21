@@ -1,10 +1,13 @@
 #include <SPI.h>
-#include <LoRa.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_ADXL343.h>
 #include <ESP32Servo.h>
+#include <LoRa.h>
+#include <MPU6050.h>
+#include <QMC5883LCompass.h>
+#include <TinyGPS++.h>
 #include <RS-FEC.h> // https://github.com/simonyipeter/Arduino-FEC/tree/5d2164e6731d9f96e01aaf94d314d26e242f98e5
 
 #define BYPASS_LORA true
@@ -18,6 +21,10 @@
 #define resetPin 40
 #define irqPin 41
 
+// GPS
+#define GPS_RX_PIN
+#define GPS_TX_PIN
+
 #define aileronServoPin 38
 // #define servoPin2 39
 #define rudderServoPin 42
@@ -26,6 +33,12 @@
 // I²C addresses
 #define BME_ADDR 0x76
 #define ADXL_ADDR 0x53
+#define MPU_ADDR 0x68
+#define QMC_ADDR 0x0D
+
+#define LORA_FREQ 907E6
+#define LORA_SYNC_WORD 0xF3
+#define DATA_SEND_INTERVAL = 2000
 
 #define SEALEVELPRESSURE_HPA 1000.0
 
@@ -63,7 +76,6 @@ RS::ReedSolomon<40, 8> longRS;
 uint8_t msgCount = 0;
 
 long lastSendTime, lastAccelReadTime;
-int interval = 2000;
 
 Vec3f vel, pos;
 
@@ -73,47 +85,14 @@ void setup() {
 
   Serial.println("CanSat!");
 
-  // Initialize servos
-  aileronServo.attach(aileronServoPin);
-  rudderServo.attach(rudderServoPin);
-
-  // set initial position to 90 degrees
-  aileronServo.write(90);
-  rudderServo.write(90);
-
-  // Initialize BME280 sensor
-  Wire.begin(SDA_PIN, SCL_PIN);
-  if (!bme.begin(BME_ADDR, &Wire)) {
-    Serial.println("Could not find a valid BME280 sensor!");
-    while (true);
-  }
-
-  if (!accel.begin()) {
-    Serial.println("Could not find ADXL343 sensor!");
-    while (true);
-  }
-
-  if (!BYPASS_LORA) {
-    // override the default CS, reset, and IRQ pins (optional)
-    LoRa.setPins(csPin, resetPin, irqPin);
-
-    if (!LoRa.begin(907E6)) {             // initialize ratio at 907 MHz
-      Serial.println("LoRa init failed. Check your connections.");
-      while (true);
-    }
-
-    LoRa.setSyncWord(0xF3);
-    Serial.println("LoRa init succeeded.");
-  } else {
-    Serial.println("WARNING: LoRa bypass enabled");
-  }
+  initServos();
+  initSensors();
+  initLoRa();
 }
 
 void loop() {
   // check for incoming packets
-  if (!BYPASS_LORA) {
-    onReceive(LoRa.parsePacket());
-  }
+  onReceive();
 
   // TODO: use interrupts if possible
   // always read accelerometer data when possible
@@ -129,7 +108,7 @@ void loop() {
     lastAccelReadTime = millis();
   }
 
-  if (millis() - lastSendTime > interval) {
+  if (millis() - lastSendTime > DATA_SEND_INTERVAL) {
     float data[10];
     data[0] = millis() / 1000.0;
     data[1] = bme.readTemperature();
@@ -143,11 +122,8 @@ void loop() {
     data[9] = pos.z;
 
     lastSendTime = millis();
-    if (!BYPASS_LORA) {
-      sendMessage((char *) data, sizeof(data));
-      LoRa.receive();
-    }
-
+    sendMessage((char *) data, sizeof(data));
+    
     Serial.print(data[0]);
     Serial.print("s, ");
     Serial.print(data[1]);
@@ -168,6 +144,42 @@ void loop() {
     Serial.print(", ");
     Serial.println(data[9]);
   }
+}
+
+void initServos() {
+  aileronServo.attach(aileronServoPin);
+  rudderServo.attach(rudderServoPin);
+
+  // set initial position to 90 degrees
+  aileronServo.write(90);
+  rudderServo.write(90);
+}
+
+void initSensors() {
+  // Initialize BME280 sensor
+  Wire.begin(SDA_PIN, SCL_PIN);
+  bool bme_init = bme.begin(BME_ADDR, &Wire);
+  bool accel_init = accel.begin();
+
+  if (!bme_init || !accel_init) {
+    if (!accel_init) Serial.println("Could not find a valid BME280 sensor!");
+    if (!bme_init) Serial.println("Could not find ADXL343 sensor!");
+    while (true);
+  }
+}
+
+void initLoRa() {
+  if (BYPASS_LORA) {Serial.println("WARNING: LoRa bypass enabled"); return;}
+  
+  LoRa.setPins(csPin, resetPin, irqPin);
+
+  if (!LoRa.begin(LORA_FREQ)) {
+    Serial.println("LoRa init failed. Check your connections.");
+    while (true);
+  }
+
+  LoRa.setSyncWord(LORA_SYNC_WORD);
+  Serial.println("LoRa init succeeded.");
 }
 
 void servoCommand(String command) {
@@ -201,11 +213,14 @@ void servoCommand(String command) {
 }
 
 void sendMessage(String msg) {
+  if (BYPASS_LORA) return;
   sendMessage(msg.c_str(), msg.length());
   Serial.println("SENT: " + msg);
 }
 
 void sendMessage(const char* msg, uint8_t lenght) {
+  if (BYPASS_LORA) return;
+
   LoRa.beginPacket();
   if (lenght > 12) {
     uint8_t out[40 + 8]; // msg should never be longer than 40 chars
@@ -218,10 +233,12 @@ void sendMessage(const char* msg, uint8_t lenght) {
   }
   LoRa.endPacket();
   msgCount++;
+  LoRa.receive();
 }
 
-void onReceive(int packetSize) {
-  if (packetSize == 0) return;
+void onReceive() {
+  if (BYPASS_LORA) return;
+  if (LoRa.parsePacket() == 0) return;
 
   // get message
   char data[18], out[13];

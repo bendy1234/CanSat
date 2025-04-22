@@ -88,7 +88,7 @@ Servo rudderServo;
 
 long lastSendTime, lastMadgwickRun;
 
-volatile Vec3f vel, pos, gps_cords, rot;
+Vec3f vel, pos, gps_cords, rot;
 
 void setup() {
   Serial.begin(9600);
@@ -150,8 +150,8 @@ void loop() {
 }
 
 void initServos() {
-  aileronServo.attach(aileronServoPin);
-  rudderServo.attach(rudderServoPin);
+  aileronServo.attach(AILERON_SERVO_PIN);
+  rudderServo.attach(RUDDER_SERVO_PIN);
 
   // set initial position to 90 degrees
   aileronServo.write(90);
@@ -176,7 +176,8 @@ void initSensors() {
   compass.setADDR(QMC_ADDR);
   compass.init();
   compass.setMode(QMC_MODE_CONTINUOUS, QMC_ODR_50HZ, QMC_RANGE_2G, QMC_OSR_128);
-  
+  // compass.setCalibrationOffsets(0.0, 0.0, 0.0);
+  // compass.setCalibrationScales(0.0, 0.0, 0.0);
 
   // GPS
   Serial2.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
@@ -197,7 +198,7 @@ void initSensors() {
 void initLoRa() {
   if (BYPASS_LORA) {Serial.println("WARNING: LoRa bypass enabled"); return;}
   
-  LoRa.setPins(CS_Pin, RESET_PIN, IRQ_PIN);
+  LoRa.setPins(CS_PIN, RESET_PIN, IRQ_PIN);
 
   if (!LoRa.begin(LORA_FREQ)) {
     Serial.println("LoRa init failed. Check your connections.");
@@ -228,8 +229,8 @@ void rotationTask(void* _) {
     };
     
     // NOTE: Added in MadgwickAHRS.h:
-    // void getQuaternion(float& _q0, float& _q1, float& _q2, float& _q3) const {
-    //     _q0 = q0; _q1 = q1; _q2 = q2; _q3 = q3;
+    // void getQuaternion(float* _q0, float* _q1, float* _q2, float* _q3) const {
+    //     *_q0 = q0; *_q1 = q1; *_q2 = q2; *_q3 = q3;
     // }
     // Why? cuz doing lots of trig is slow
 
@@ -308,7 +309,6 @@ void sendMessage(const char* msg, uint8_t lenght) {
     LoRa.write(out, sizeof(out));
   }
   LoRa.endPacket();
-  msgCount++;
   LoRa.receive();
 }
 

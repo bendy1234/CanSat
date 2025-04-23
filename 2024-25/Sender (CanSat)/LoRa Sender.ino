@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <Adafruit_ADXL343.h>
 #include <ESP32Servo.h>
 #include <LoRa.h>
 #include <MPU6050.h>
@@ -17,7 +16,6 @@
 
 // I²C Addresses
 #define BME_ADDR               0x76
-#define ADXL_ADDR              0x53
 #define MPU_ADDR               0x68 // or 0x69
 #define QMC_ADDR               0x0D
 
@@ -75,7 +73,6 @@ Madgwick filter;
 
 // sensors
 Adafruit_BME280 bme;
-Adafruit_ADXL343 accel = Adafruit_ADXL343(ADXL_ADDR, &Wire);
 MPU6050 mpu;
 QMC5883LCompass compass;
 TinyGPSPlus gps;
@@ -162,7 +159,6 @@ void initSensors() {
   Wire.begin(SDA_PIN, SCL_PIN);
   
   bool bme_init = !bme.begin(BME_ADDR, &Wire);
-  bool accel_init = !accel.begin();
   
   mpu.initialize();
   bool mpu_init = !mpu.testConnection();
@@ -184,9 +180,8 @@ void initSensors() {
   xTaskCreate(GPSTask, "GPS", 4096, NULL, 2, NULL);
   xTaskCreate(rotationTask, "rotation", 4096, NULL, 3, NULL);
 
-  if (accel_init || bme_init || mpu_init) {
+  if (bme_init || mpu_init) {
     Serial.println("Could not find the following sensor(s):");
-    if (accel_init) Serial.println("ADXL343");
     if (bme_init) Serial.println("BME280");
     if (mpu_init) Serial.println("MPU6050");
     // TODO: compass

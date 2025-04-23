@@ -17,7 +17,6 @@ SCL = 9
 | Sensor   | Address |
 | :------: | :-----: |
 | BMP 280  |   0x76  |
-| ADXL343  |   0x53  |
 | MPU6050  |   0x68  |
 | QMC5883L |   0x0D  |
 

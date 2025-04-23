@@ -168,16 +168,15 @@ void initSensors() {
   bool mpu_init = !mpu.testConnection();
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
-  // TODO: get calibrations
-  mpu.setXAccelOffset(0); mpu.setYAccelOffset(0); mpu.setZAccelOffset(0);
-  mpu.setXGyroOffset(0); mpu.setYGyroOffset(0); mpu.setZGyroOffset(0);
+  mpu.setXAccelOffset(-2348.0); mpu.setYAccelOffset(-484.0); mpu.setZAccelOffset(4681.0);
+  mpu.setXGyroOffset(35.0); mpu.setYGyroOffset(-21.0); mpu.setZGyroOffset(26.0);
   mpu.setI2CBypassEnabled(true);
 
   compass.setADDR(QMC_ADDR);
   compass.init();
   compass.setMode(QMC_MODE_CONTINUOUS, QMC_ODR_50HZ, QMC_RANGE_2G, QMC_OSR_128);
-  // compass.setCalibrationOffsets(0.0, 0.0, 0.0);
-  // compass.setCalibrationScales(0.0, 0.0, 0.0);
+  compass.setCalibrationOffsets(-175.00, -120.00, 1.00);
+  compass.setCalibrationScales(1.00, 1.00, 0.99);
 
   // GPS
   Serial2.begin(115200, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);

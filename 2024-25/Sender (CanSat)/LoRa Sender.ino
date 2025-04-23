@@ -34,8 +34,8 @@
 #define IRQ_PIN                41
 
 // GPS Pins
-#define GPS_RX_PIN             18 // TODO confirm pins
-#define GPS_TX_PIN             19
+#define GPS_RX_PIN             43
+#define GPS_TX_PIN             44
 
 // Servo Pins
 #define AILERON_SERVO_PIN      38
@@ -180,7 +180,7 @@ void initSensors() {
   // compass.setCalibrationScales(0.0, 0.0, 0.0);
 
   // GPS
-  Serial2.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  Serial2.begin(115200, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
   
   xTaskCreate(GPSTask, "GPS", 4096, NULL, 2, NULL);
   xTaskCreate(rotationTask, "rotation", 4096, NULL, 3, NULL);

@@ -73,17 +73,17 @@ void parseData(uint8_t* data, uint8_t size) {
     Serial.print(sensorData[2]);
     Serial.print("Hpa, ");
     Serial.print(sensorData[3]);
-    Serial.print("%, vel: ");
+    Serial.print("%, est pos: ");
     Serial.print(sensorData[4]);
     Serial.print(", ");
     Serial.print(sensorData[5]);
     Serial.print(", ");
     Serial.print(sensorData[6]);
-    Serial.print(", est pos: ");
+    Serial.print(", gps: ");
     Serial.print(sensorData[7]);
     Serial.print(", ");
     Serial.print(sensorData[8]);
-    Serial.print(", ");
+    Serial.print(", altitude: ");
     Serial.println(sensorData[9]);
   } else {
     char msg[13];

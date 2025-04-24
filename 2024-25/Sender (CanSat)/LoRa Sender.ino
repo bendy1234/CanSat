@@ -32,8 +32,8 @@
 #define IRQ_PIN                41
 
 // GPS Pins
-#define GPS_RX_PIN             43
-#define GPS_TX_PIN             44
+#define GPS_RX_PIN             44
+#define GPS_TX_PIN             43
 
 // Servo Pins
 #define AILERON_SERVO_PIN      38
@@ -47,7 +47,7 @@
 #define QMC_RANGE_2G           (0b00 << 4)
 #define QMC_OSR_128            (0b10 << 6)
 
-#define MAG_LSB_TO_UT          (100000.0 / 12000.0)
+#define MAG_LSB_TO_UT          (100.0 / 12000.0)
 
 // simple vec3 for what i need
 struct Vec3f {
@@ -108,18 +108,15 @@ void loop() {
     data[1] = bme.readTemperature();
     data[2] = bme.readPressure() / 100.0;
     data[3] = bme.readHumidity();
-    data[4] = vel.x;
-    data[5] = vel.y;
-    data[6] = vel.z;
-    data[7] = pos.x;
-    data[8] = pos.y;
-    data[9] = pos.z;
+    data[4] = pos.x;
+    data[5] = pos.y;
+    data[6] = pos.z;
+    data[7] = gps_cords.x;
+    data[8] = gps_cords.y;
+    data[9] = gps_cords.z; // altitude
     // data[10] = rot.x;
     // data[11] = rot.y;
     // data[12] = rot.z;
-    // data[13] = gps_cords.x;
-    // data[14] = gps_cords.y;
-    // data[15] = gps_cords.z;
 
     lastSendTime = millis();
     sendMessage((char *) data, sizeof(data));
@@ -131,18 +128,31 @@ void loop() {
     Serial.print(data[2]);
     Serial.print( "Hpa, ");
     Serial.print(data[3]);
-    Serial.print("%, vel: ");
+    Serial.print(", est pos: ");
     Serial.print(data[4]);
     Serial.print(", ");
     Serial.print(data[5]);
     Serial.print(", ");
     Serial.print(data[6]);
-    Serial.print(", est pos: ");
+    Serial.print(", gps: ");
     Serial.print(data[7]);
     Serial.print(", ");
     Serial.print(data[8]);
-    Serial.print(", ");
-    Serial.println(data[9]);
+    Serial.print(", altitude: ");
+    Serial.print(data[9]);
+    // Serial.print(", est rot: ");
+    // Serial.print(rot.x);
+    // Serial.print(", ");
+    // Serial.print(rot.y);
+    // Serial.print(", ");
+    // Serial.println(rot.z);
+
+    // Serial.print("GPS: ");
+    // Serial.print(gps_cords.x);
+    // Serial.print(", ");
+    // Serial.print(gps_cords.y);
+    // Serial.print(", ");
+    // Serial.println(gps_cords.z);
   }
 }
 
@@ -164,15 +174,15 @@ void initSensors() {
   bool mpu_init = !mpu.testConnection();
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
-  mpu.setXAccelOffset(-2348.0); mpu.setYAccelOffset(-484.0); mpu.setZAccelOffset(4681.0);
-  mpu.setXGyroOffset(35.0); mpu.setYGyroOffset(-21.0); mpu.setZGyroOffset(26.0);
+  mpu.setXAccelOffset(-2169.0); mpu.setYAccelOffset(-281.0); mpu.setZAccelOffset(831.0);
+  mpu.setXGyroOffset(35.0); mpu.setYGyroOffset(-17.0); mpu.setZGyroOffset(26.0);
   mpu.setI2CBypassEnabled(true);
 
   compass.setADDR(QMC_ADDR);
   compass.init();
   compass.setMode(QMC_MODE_CONTINUOUS, QMC_ODR_50HZ, QMC_RANGE_2G, QMC_OSR_128);
-  compass.setCalibrationOffsets(-175.00, -120.00, 1.00);
-  compass.setCalibrationScales(1.00, 1.00, 0.99);
+  compass.setCalibrationOffsets(-4641.00, -1958.00, 3594.00);
+  compass.setCalibrationScales(1.16, 1.16, 0.78);
 
   // GPS
   Serial2.begin(115200, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
@@ -212,9 +222,17 @@ void rotationTask(void* _) {
     mx = compass.getX(); my = compass.getY(); mz = compass.getZ();
 
     // FIXME: Magic numbers
-    filter.update(ax * 2.0 / 32768.0, ay * 2.0 / 32768.0, az * 2.0 / 32768.0,
+    Vec3f acc = {
+      float(ax) * 2.0 / 32768.0,
+      float(ay) * 2.0 / 32768.0,
+      float(az) * 2.0 / 32768.0,
+    };
+
+    filter.update(acc.x, acc.y, acc.z,
                   gx * 250.0 / 32768.0, gy * 250.0 / 32768.0, gz * 250.0 / 32768.0,
                   mx * MAG_LSB_TO_UT, my * MAG_LSB_TO_UT, mz * MAG_LSB_TO_UT);
+    float dt = (millis() - lastMadgwickRun) / 1000.0;
+    lastMadgwickRun = millis();
 
     rot = {
       filter.getRoll(),
@@ -230,12 +248,9 @@ void rotationTask(void* _) {
 
     float q0, q1, q2, q3;
     filter.getQuaternion(&q0, &q1, &q2, &q3);
-    Vec3f acc = rotateVec3ByQuaternion(ax, ay, az, q0, q1, q2, q3);
-
-    float dt = (millis() - lastMadgwickRun) / 1000.0;
+    acc = rotateVec3ByQuaternion(acc.x, acc.y, acc.z, q0, q1, q2, q3);
     vel += acc * dt;
     pos += vel * dt;
-    lastMadgwickRun = millis();
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
@@ -248,7 +263,7 @@ void GPSTask(void* _) {
         gps_cords = {gps.location.lat(), gps.location.lng(), gps.altitude.meters()};
       }
     }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 

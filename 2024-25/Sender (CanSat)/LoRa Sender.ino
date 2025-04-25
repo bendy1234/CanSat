@@ -9,8 +9,9 @@
 #include <TinyGPS++.h>
 #include <MadgwickAHRS.h>
 #include <RS-FEC.h> // https://github.com/simonyipeter/Arduino-FEC/tree/5d2164e6731d9f96e01aaf94d314d26e242f98e5
+#include <FS.h>
+#include <SD.h>
 
-#define BYPASS_LORA            true
 #define SEALEVELPRESSURE_HPA   1000.0
 #define MADGWICK_TASK_INTERVAL 10
 
@@ -27,9 +28,12 @@
 #define LORA_FREQ              907E6
 #define LORA_SYNC_WORD         0xF3
 #define DATA_SEND_INTERVAL     2000
-#define CS_PIN                 10
+#define LORA_CS_PIN            10
 #define RESET_PIN              40
 #define IRQ_PIN                41
+
+// SD card
+#define SD_CS_PIN              39
 
 // GPS Pins
 #define GPS_RX_PIN             44
@@ -83,6 +87,8 @@ Servo aileronServo;
 Servo rudderServo;
 // Servo servo4;
 
+bool BYPASS_LORA = false;
+
 long lastSendTime, lastMadgwickRun;
 
 Vec3f vel, pos, gps_cords, rot;
@@ -96,6 +102,8 @@ void setup() {
   initServos();
   initSensors();
   initLoRa();
+  SD.begin(SD_CS_PIN);
+  appendFile(SD, "out.txt", "========== PROGRAM START ==========");
 }
 
 void loop() {
@@ -121,38 +129,39 @@ void loop() {
     lastSendTime = millis();
     sendMessage((char *) data, sizeof(data));
     
-    Serial.print(data[0]);
-    Serial.print("s, ");
-    Serial.print(data[1]);
-    Serial.print("∘c, ");
-    Serial.print(data[2]);
-    Serial.print( "Hpa, ");
-    Serial.print(data[3]);
-    Serial.print(", est pos: ");
-    Serial.print(data[4]);
-    Serial.print(", ");
-    Serial.print(data[5]);
-    Serial.print(", ");
-    Serial.print(data[6]);
-    Serial.print(", gps: ");
-    Serial.print(data[7]);
-    Serial.print(", ");
-    Serial.print(data[8]);
-    Serial.print(", altitude: ");
-    Serial.print(data[9]);
-    // Serial.print(", est rot: ");
-    // Serial.print(rot.x);
-    // Serial.print(", ");
-    // Serial.print(rot.y);
-    // Serial.print(", ");
-    // Serial.println(rot.z);
+    File file = SD.open("out.txt", FILE_APPEND);
+    if (!file) {
+      Serial.println("Could not open file!");
+      return;
+    }
 
-    // Serial.print("GPS: ");
-    // Serial.print(gps_cords.x);
-    // Serial.print(", ");
-    // Serial.print(gps_cords.y);
-    // Serial.print(", ");
-    // Serial.println(gps_cords.z);
+    file.print(data[0]);
+    file.print("s, ");
+    file.print(data[1]);
+    file.print("∘c, ");
+    file.print(data[2]);
+    file.print( "Hpa, ");
+    file.print(data[3]);
+    file.print(", est pos: ");
+    file.print(data[4]);
+    file.print(", ");
+    file.print(data[5]);
+    file.print(", ");
+    file.print(data[6]);
+    file.print(", GPS: ");
+    file.print(data[7]);
+    file.print(", ");
+    file.print(data[8]);
+    file.print(", altitude: ");
+    file.print(data[9]);
+  
+    file.print(", est rot: ");
+    file.print(rot.x);
+    file.print(", ");
+    file.print(rot.y);
+    file.print(", ");
+    file.println(rot.z);
+    file.close();
   }
 }
 
@@ -202,11 +211,11 @@ void initSensors() {
 void initLoRa() {
   if (BYPASS_LORA) {Serial.println("WARNING: LoRa bypass enabled"); return;}
   
-  LoRa.setPins(CS_PIN, RESET_PIN, IRQ_PIN);
+  LoRa.setPins(LORA_CS_PIN, RESET_PIN, IRQ_PIN);
 
   if (!LoRa.begin(LORA_FREQ)) {
     Serial.println("LoRa init failed. Check your connections.");
-    while (true);
+    BYPASS_LORA = true;
   }
 
   LoRa.setSyncWord(LORA_SYNC_WORD);
@@ -292,6 +301,7 @@ void servoCommand(String command) {
   Serial.print("Servo ");
   Serial.print(command.substring(0, 2));
   Serial.println(" set to: " + String(angle));
+  appendFile(SD, "out.txt", ("SERVO:" + command).c_str());
 
   delay(10);
   sendMessage("SERVO:" + command);
@@ -355,4 +365,17 @@ Vec3f rotateVec3ByQuaternion(float x, float y, float z, float q0, float q1, floa
   float rotZ = qv0 * -q2 - qv1 * -q3 + qv2 * q0 + qv3 * -q1;
 
   return Vec3f{rotX, rotY, rotZ};
+}
+
+void appendFile(fs::FS &fs, const char *path, const char *message) {
+  File file = fs.open(path, FILE_APPEND);
+  if (!file) {
+    Serial.println("Could not open file!");
+    return;
+  }
+  if (file.print(message)) {
+  } else {
+    Serial.println("Could not write to file!");
+  }
+  file.close();
 }

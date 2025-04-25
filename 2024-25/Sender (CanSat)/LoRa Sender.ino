@@ -96,7 +96,8 @@ void setup() {
   while (!Serial);
 
   Serial.println("CanSat!");
-
+  
+  filter.begin(100);
   initServos();
   initSensors();
   initLoRa();
@@ -374,7 +375,7 @@ Vec3f rotateVec3ByQuaternion(float x, float y, float z, float q0, float q1, floa
   float rotZ = qv0 * -q2 - qv1 * -q3 + qv2 * q0 + qv3 * -q1;
 
   return Vec3f{rotX, rotY, rotZ};
-}
+} 
 
 void appendFile(fs::FS &fs, const char *path, const char *message) {
   File file = fs.open(path, FILE_APPEND);

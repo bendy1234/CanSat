@@ -89,7 +89,7 @@ float sea_level_pressure, max_altitude;
 
 long lastSendTime, lastMadgwickRun;
 
-Vec3f vel, pos, gps_cords, rot;
+Vec3f vel, pos, gps_cords, rot, mag;
 
 void setup() {
   Serial.begin(9600);
@@ -104,7 +104,7 @@ void setup() {
   SD.begin(SD_CS_PIN);
 
   appendFile(SD, "out.txt", "========== PROGRAM START ==========");
-  sea_level_pressure = bmp.readPressure() / 100.0F;
+  sea_level_pressure = bme.readPressure() / 100.0F;
 }
 
 void loop() {
@@ -132,7 +132,7 @@ void loop() {
     } else if ((max_altitude - alt) <= 50) {
       Serial.println("Auto unlock");
       appendFile(SD, "out.txt", "Auto unlock");
-      sendCommand("unl0");
+      servoCommand("unl0");
       max_altitude = -1;
     }
 
@@ -170,14 +170,20 @@ void loop() {
     file.print(", ");
     file.print(rot.y);
     file.print(", ");
-    file.println(rot.z);
+    file.print(rot.z);
+    file.print(", mag: ");
+    file.print(mag.x);
+    file.print(", ");
+    file.print(mag.y);
+    file.print(", ");
+    file.print(mag.z);
     file.close();
   }
 }
 
 void initServos() {
   aileronServo.attach(AILERON_SERVO_PIN);
-  unlockServo.attach(RUDDER_SERVO_PIN);
+  unlockServo.attach(UNLOCK_SERVO_PIN);
 
   // set initial position to 90 degrees
   aileronServo.write(90);
@@ -247,9 +253,15 @@ void rotationTask(void* _) {
       float(az) * 2.0 / 32768.0,
     };
 
+    mag = {
+      mx * MAG_LSB_TO_UT,
+      my * MAG_LSB_TO_UT,
+      mz * MAG_LSB_TO_UT
+    };
+
     filter.update(acc.x, acc.y, acc.z,
                   gx * 250.0 / 32768.0, gy * 250.0 / 32768.0, gz * 250.0 / 32768.0,
-                  mx * MAG_LSB_TO_UT, my * MAG_LSB_TO_UT, mz * MAG_LSB_TO_UT);
+                  mag.x, mag.y, mag.z);
     float dt = (millis() - lastMadgwickRun) / 1000.0;
     lastMadgwickRun = millis();
 

@@ -12,7 +12,6 @@
 #include <FS.h>
 #include <SD.h>
 
-#define SEALEVELPRESSURE_HPA   1000.0
 #define MADGWICK_TASK_INTERVAL 10
 
 // I²C Addresses
@@ -27,23 +26,22 @@
 // LoRa Config
 #define LORA_FREQ              907E6
 #define LORA_SYNC_WORD         0xF3
-#define DATA_SEND_INTERVAL     2000
+#define DATA_SEND_INTERVAL     1000
 #define LORA_CS_PIN            10
 #define RESET_PIN              40
 #define IRQ_PIN                41
 
 // SD card
-#define SD_CS_PIN              39
+#define SD_CS_PIN              45
 
 // GPS Pins
 #define GPS_RX_PIN             44
 #define GPS_TX_PIN             43
 
 // Servo Pins
-#define AILERON_SERVO_PIN      38
-// #define SERVO_PIN2          39
-#define RUDDER_SERVO_PIN       42
-// #define SERVO_PIN4          45
+#define AILERON_SERVO_PIN      42
+#define UNLOCK_SERVO_PIN       38
+// #define SERVO_PIN2             39
 
 // QMC5883L Config
 #define QMC_MODE_CONTINUOUS    (0b01)
@@ -83,11 +81,11 @@ TinyGPSPlus gps;
 
 // servos
 Servo aileronServo;
-// Servo servo2;
-Servo rudderServo;
+Servo unlockServo;
 // Servo servo4;
 
 bool BYPASS_LORA = false;
+float sea_level_pressure, max_altitude;
 
 long lastSendTime, lastMadgwickRun;
 
@@ -103,7 +101,9 @@ void setup() {
   initSensors();
   initLoRa();
   SD.begin(SD_CS_PIN);
+
   appendFile(SD, "out.txt", "========== PROGRAM START ==========");
+  sea_level_pressure = bmp.readPressure() / 100.0F;
 }
 
 void loop() {
@@ -125,6 +125,15 @@ void loop() {
     // data[10] = rot.x;
     // data[11] = rot.y;
     // data[12] = rot.z;
+    float alt = bme.readAltitude(sea_level_pressure);
+    if (max_altitude != -1 && alt > max_altitude) {
+      max_altitude = alt;
+    } else if ((max_altitude - alt) <= 50) {
+      Serial.println("Auto unlock");
+      appendFile(SD, "out.txt", "Auto unlock");
+      sendCommand("unl0");
+      max_altitude = -1;
+    }
 
     lastSendTime = millis();
     sendMessage((char *) data, sizeof(data));
@@ -167,11 +176,11 @@ void loop() {
 
 void initServos() {
   aileronServo.attach(AILERON_SERVO_PIN);
-  rudderServo.attach(RUDDER_SERVO_PIN);
+  unlockServo.attach(RUDDER_SERVO_PIN);
 
   // set initial position to 90 degrees
   aileronServo.write(90);
-  rudderServo.write(90);
+  unlockServo.write(90);
 }
 
 void initSensors() {
@@ -287,8 +296,8 @@ void servoCommand(String command) {
 
   if (command.startsWith("ail")) {
     aileronServo.write(angle);
-  } else if (command.startsWith("rud")) {
-    rudderServo.write(angle);
+  } else if (command.startsWith("unl")) {
+    unlockServo.write(angle);
   } else {
     Serial.print("Unknown servo: ");
     Serial.println(command.substring(0, 2));
